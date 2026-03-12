@@ -23,19 +23,13 @@
   .slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s cubic-bezier(.4,0,.2,1); pointer-events: none; }
   .slide.active { opacity: 1; pointer-events: auto; }
 
-  .vimeo-wrap {
-    position: absolute; inset: 0; overflow: hidden;
-  }
+  .vimeo-wrap { position: absolute; inset: 0; overflow: hidden; }
   .vimeo-wrap iframe {
-    position: absolute;
-    top: 50%; left: 50%;
-    width: 177.78vh; /* 16:9 */
-    height: 100vh;
-    min-width: 100%;
-    min-height: 56.25vw;
+    position: absolute; top: 50%; left: 50%;
+    width: 177.78vh; height: 100vh;
+    min-width: 100%; min-height: 56.25vw;
     transform: translate(-50%, -50%);
-    border: none;
-    pointer-events: none;
+    border: none; pointer-events: none;
   }
 
   .slide::after {
@@ -89,14 +83,32 @@
   @keyframes p3 { from { height: 7px; } to { height: 14px; } }
   #sound-label { font-size: .58rem; letter-spacing: .18em; color: var(--dim); text-transform: lowercase; font-weight: 300; }
 
-  #dots {
-    position: fixed; right: 6vw; top: 50%; transform: translateY(-50%);
-    z-index: 100; display: flex; flex-direction: column; align-items: center;
-    gap: 7px; opacity: .4; transition: opacity 1s ease;
+  /* Nav arrows */
+  #nav {
+    position: fixed; top: 50%; right: 6vw;
+    transform: translateY(-50%);
+    z-index: 100;
+    display: flex; flex-direction: column; align-items: center; gap: 1.2rem;
   }
-  #dots.hidden { opacity: 0; pointer-events: none; }
-  .dot { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,.25); transition: background .3s, transform .3s; }
-  .dot.active { transform: scale(1.8); background: #fff; }
+  .nav-btn {
+    cursor: none;
+    width: 36px; height: 36px;
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color .3s, background .3s, transform .2s;
+    background: transparent;
+  }
+  .nav-btn:hover { border-color: rgba(255,255,255,.8); background: rgba(255,255,255,.08); transform: scale(1.12); }
+  .nav-btn svg { width: 12px; height: 12px; fill: none; stroke: #fff; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: .7; }
+  .nav-btn:hover svg { opacity: 1; }
+
+  /* Dots between arrows */
+  #dots {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .dot { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,.22); transition: background .3s, transform .3s; }
+  .dot.active { transform: scale(1.9); background: #fff; }
 
   #overlay { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 200; transition: opacity .4s ease; }
   #overlay.flash { opacity: .75; }
@@ -123,7 +135,16 @@
   <span id="counter-total">15</span>
 </div>
 
-<div id="dots"></div>
+<div id="nav">
+  <button class="nav-btn" id="btn-prev" onclick="prev()" title="Previous">
+    <svg viewBox="0 0 12 12"><polyline points="10,9 6,4 2,9"/></svg>
+  </button>
+  <div id="dots"></div>
+  <button class="nav-btn" id="btn-next" onclick="next()" title="Next">
+    <svg viewBox="0 0 12 12"><polyline points="2,3 6,8 10,3"/></svg>
+  </button>
+</div>
+
 <div id="reel"></div>
 
 <script>
@@ -147,23 +168,25 @@
 
   let current = 0, transitioning = false, soundOn = false;
   let idleTimer, ghostTimer;
-  let players = [];
 
   const reel = document.getElementById('reel');
   const dotsEl = document.getElementById('dots');
+  const iframes = [];
 
   // Build slides
   const slideEls = slides.map((s, i) => {
     const el = document.createElement('div');
     el.className = 'slide' + (i === 0 ? ' active' : '');
-    // Vimeo embed: autoplay, loop, muted, no controls, no title, no byline
-    const src = `https://player.vimeo.com/video/${s.id}?autoplay=1&loop=1&muted=1&background=1&autopause=0&transparent=0`;
+    // Only first slide autoplays; others load paused via autopause
+    const autoplay = i === 0 ? 1 : 0;
+    const src = `https://player.vimeo.com/video/${s.id}?autoplay=${autoplay}&loop=1&muted=1&background=1&autopause=0&transparent=0`;
     el.innerHTML = `
       <div class="vimeo-wrap">
         <iframe src="${src}" allow="autoplay; fullscreen" allowfullscreen></iframe>
       </div>
       <div class="project-title">${s.title}</div>`;
     reel.appendChild(el);
+    iframes.push(el.querySelector('iframe'));
     return el;
   });
 
@@ -180,22 +203,47 @@
     [...dotsEl.querySelectorAll('.dot')].forEach((d,i) => d.className = 'dot'+(i===current?' active':''));
   }
 
+  // Send postMessage to a single Vimeo iframe
+  function vimeoMsg(iframe, method, value) {
+    const msg = value !== undefined
+      ? JSON.stringify({ method, value })
+      : JSON.stringify({ method });
+    iframe.contentWindow.postMessage(msg, '*');
+  }
+
+  // Mute all, then unmute only current (if sound is on)
+  function syncSound() {
+    iframes.forEach((iframe, i) => {
+      vimeoMsg(iframe, 'setVolume', i === current && soundOn ? 1 : 0);
+    });
+  }
+
+  // Pause all, play only current
+  function syncPlayback(prevIdx) {
+    if (prevIdx !== undefined) vimeoMsg(iframes[prevIdx], 'pause');
+    vimeoMsg(iframes[current], 'play');
+  }
+
   const overlay = document.getElementById('overlay');
   function goTo(idx) {
     if (transitioning || idx === current) return;
     transitioning = true;
+    const prevIdx = current;
     overlay.classList.add('flash');
     setTimeout(() => {
-      slideEls[current].classList.remove('active');
+      slideEls[prevIdx].classList.remove('active');
       current = idx;
       slideEls[current].classList.add('active');
       updateUI();
+      syncPlayback(prevIdx);
+      syncSound();
       overlay.classList.remove('flash');
       setTimeout(() => { transitioning = false; }, 1200);
     }, 380);
   }
-  const next = () => goTo((current+1) % slides.length);
-  const prev = () => goTo((current-1+slides.length) % slides.length);
+
+  function next() { goTo((current+1) % slides.length); }
+  function prev() { goTo((current-1+slides.length) % slides.length); }
 
   // Scroll
   let acc = 0;
@@ -236,20 +284,12 @@
   window.addEventListener('wheel', resetIdle);
   resetIdle();
 
-  // Hide dots on first scroll
-  window.addEventListener('wheel', () => dotsEl.classList.add('hidden'), { once: true });
-
-  // Sound — uses Vimeo postMessage API
+  // Sound toggle
   function toggleSound() {
     soundOn = !soundOn;
     document.getElementById('sound').classList.toggle('on', soundOn);
     document.getElementById('sound-label').textContent = soundOn ? 'sound on' : 'sound off';
-    document.querySelectorAll('.vimeo-wrap iframe').forEach(iframe => {
-      const msg = soundOn
-        ? JSON.stringify({ method: 'setVolume', value: 1 })
-        : JSON.stringify({ method: 'setVolume', value: 0 });
-      iframe.contentWindow.postMessage(msg, '*');
-    });
+    syncSound();
   }
 
   // Cursor
@@ -259,8 +299,10 @@
     cur.classList.remove('hidden');
   });
   document.addEventListener('mouseleave', () => cur.classList.add('hidden'));
-  document.getElementById('sound').addEventListener('mouseenter', () => cur.classList.add('hover'));
-  document.getElementById('sound').addEventListener('mouseleave', () => cur.classList.remove('hover'));
+  document.querySelectorAll('.nav-btn, #sound').forEach(el => {
+    el.addEventListener('mouseenter', () => cur.classList.add('hover'));
+    el.addEventListener('mouseleave', () => cur.classList.remove('hover'));
+  });
 
   updateUI();
 </script>
