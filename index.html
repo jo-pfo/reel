@@ -1,310 +1,284 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Joaquin Orozco</title>
-<style>
-  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-  :root { --dim: rgba(255,255,255,0.35); --font: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-  html, body { width: 100%; height: 100%; background: #000; color: #fff; font-family: var(--font); overflow: hidden; cursor: none; }
-
-  #cursor {
-    position: fixed; width: 10px; height: 10px; border-radius: 50%; background: #fff;
-    pointer-events: none; z-index: 9999; transform: translate(-50%, -50%);
-    transition: width .25s ease, height .25s ease, opacity .25s ease;
-    mix-blend-mode: difference;
-  }
-  #cursor.hover { width: 48px; height: 48px; }
-  #cursor.hidden { opacity: 0; }
-
-  #reel { position: fixed; inset: 0; }
-
-  .slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s cubic-bezier(.4,0,.2,1); pointer-events: none; }
-  .slide.active { opacity: 1; pointer-events: auto; }
-
-  .vimeo-wrap { position: absolute; inset: 0; overflow: hidden; }
-  .vimeo-wrap iframe {
-    position: absolute; top: 50%; left: 50%;
-    width: 177.78vh; height: 100vh;
-    min-width: 100%; min-height: 56.25vw;
-    transform: translate(-50%, -50%);
-    border: none; pointer-events: none;
-  }
-
-  .slide::after {
-    content: ''; position: absolute; inset: 0; pointer-events: none;
-    background: linear-gradient(to top, rgba(0,0,0,.6) 0%, transparent 50%, rgba(0,0,0,.25) 100%);
-    z-index: 2;
-  }
-
-  .project-title {
-    position: absolute; bottom: 10vh; left: 6vw;
-    font-size: clamp(3rem, 7vw, 8.5rem); font-weight: 100; letter-spacing: -.02em;
-    line-height: 1; color: #fff; opacity: 0; transform: translateY(18px);
-    transition: opacity 1s ease .3s, transform 1s ease .3s;
-    pointer-events: none; z-index: 10;
-  }
-  .slide.active .project-title { opacity: .12; transform: translateY(0); }
-
-  #identity {
-    position: fixed; top: 6vh; left: 6vw; z-index: 100;
-    transition: opacity 1.5s ease;
-  }
-  #identity.fade { opacity: 0; }
-  #identity.ghost { opacity: .18; transition: opacity .8s ease; }
-  #name { font-size: clamp(.85rem, 1.3vw, 1.1rem); font-weight: 300; letter-spacing: .22em; text-transform: lowercase; }
-  #bio { margin-top: .4rem; font-size: clamp(.6rem, .85vw, .75rem); font-weight: 300; letter-spacing: .12em; color: var(--dim); line-height: 1.6; text-transform: lowercase; }
-
-  #counter {
-    position: fixed; bottom: 6vh; right: 6vw; z-index: 100;
-    display: flex; align-items: center; gap: .8rem;
-  }
-  #counter-current { font-size: .65rem; font-weight: 300; letter-spacing: .18em; }
-  #counter-line { width: 40px; height: 1px; background: rgba(255,255,255,.2); position: relative; overflow: hidden; }
-  #counter-progress { position: absolute; left: 0; top: 0; height: 100%; background: #fff; transition: width .5s ease; }
-  #counter-total { font-size: .65rem; font-weight: 300; letter-spacing: .18em; color: var(--dim); }
-
-  #sound {
-    position: fixed; bottom: 6vh; left: 6vw; z-index: 100;
-    cursor: none; display: flex; align-items: center; gap: .7rem;
-  }
-  #sound-bars { display: flex; align-items: flex-end; gap: 2px; height: 14px; }
-  .bar { width: 2px; background: rgba(255,255,255,.35); border-radius: 1px; transition: height .3s ease, background .3s ease; }
-  .bar:nth-child(1) { height: 4px; }
-  .bar:nth-child(2) { height: 10px; }
-  .bar:nth-child(3) { height: 7px; }
-  #sound.on .bar { background: rgba(255,255,255,.85); }
-  #sound.on .bar:nth-child(1) { animation: p1 .8s ease infinite alternate; }
-  #sound.on .bar:nth-child(2) { animation: p2 .6s ease infinite alternate; }
-  #sound.on .bar:nth-child(3) { animation: p3 .9s ease infinite alternate; }
-  @keyframes p1 { from { height: 4px; } to { height: 12px; } }
-  @keyframes p2 { from { height: 10px; } to { height: 4px; } }
-  @keyframes p3 { from { height: 7px; } to { height: 14px; } }
-  #sound-label { font-size: .58rem; letter-spacing: .18em; color: var(--dim); text-transform: lowercase; font-weight: 300; }
-
-  /* Nav arrows */
-  #nav {
-    position: fixed; top: 50%; right: 6vw;
-    transform: translateY(-50%);
-    z-index: 100;
-    display: flex; flex-direction: column; align-items: center; gap: 1.2rem;
-  }
-  .nav-btn {
-    cursor: none;
-    width: 36px; height: 36px;
-    border: 1px solid rgba(255,255,255,.25);
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    transition: border-color .3s, background .3s, transform .2s;
-    background: transparent;
-  }
-  .nav-btn:hover { border-color: rgba(255,255,255,.8); background: rgba(255,255,255,.08); transform: scale(1.12); }
-  .nav-btn svg { width: 12px; height: 12px; fill: none; stroke: #fff; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: .7; }
-  .nav-btn:hover svg { opacity: 1; }
-
-  /* Dots between arrows */
-  #dots {
-    display: flex; flex-direction: column; align-items: center; gap: 6px;
-  }
-  .dot { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,.22); transition: background .3s, transform .3s; }
-  .dot.active { transform: scale(1.9); background: #fff; }
-
-  #overlay { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 200; transition: opacity .4s ease; }
-  #overlay.flash { opacity: .75; }
-</style>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2685.4">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
+    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
+  </style>
 </head>
 <body>
-
-<div id="cursor"></div>
-<div id="overlay"></div>
-
-<div id="identity">
-  <div id="name">joaquin orozco</div>
-  <div id="bio">brand strategies & comms director</div>
-</div>
-
-<div id="sound" onclick="toggleSound()">
-  <div id="sound-bars"><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>
-  <span id="sound-label">sound off</span>
-</div>
-
-<div id="counter">
-  <span id="counter-current">01</span>
-  <div id="counter-line"><div id="counter-progress"></div></div>
-  <span id="counter-total">15</span>
-</div>
-
-<div id="nav">
-  <button class="nav-btn" id="btn-prev" onclick="prev()" title="Previous">
-    <svg viewBox="0 0 12 12"><polyline points="10,9 6,4 2,9"/></svg>
-  </button>
-  <div id="dots"></div>
-  <button class="nav-btn" id="btn-next" onclick="next()" title="Next">
-    <svg viewBox="0 0 12 12"><polyline points="2,3 6,8 10,3"/></svg>
-  </button>
-</div>
-
-<div id="reel"></div>
-
-<script>
-  const slides = [
-    { title: "I",    id: "1172849073" },
-    { title: "II",   id: "1172849046" },
-    { title: "III",  id: "1172849012" },
-    { title: "IV",   id: "1172848986" },
-    { title: "V",    id: "1172848954" },
-    { title: "VI",   id: "1172848930" },
-    { title: "VII",  id: "1172848889" },
-    { title: "VIII", id: "1172848857" },
-    { title: "IX",   id: "1172848833" },
-    { title: "X",    id: "1172848807" },
-    { title: "XI",   id: "1172848786" },
-    { title: "XII",  id: "1172848769" },
-    { title: "XIII", id: "1172848710" },
-    { title: "XIV",  id: "1172848667" },
-    { title: "XV",   id: "1172848640" },
-  ];
-
-  let current = 0, transitioning = false, soundOn = false;
-  let idleTimer, ghostTimer;
-
-  const reel = document.getElementById('reel');
-  const dotsEl = document.getElementById('dots');
-  const iframes = [];
-
-  // Build slides
-  const slideEls = slides.map((s, i) => {
-    const el = document.createElement('div');
-    el.className = 'slide' + (i === 0 ? ' active' : '');
-    // Only first slide autoplays; others load paused via autopause
-    const autoplay = i === 0 ? 1 : 0;
-    const src = `https://player.vimeo.com/video/${s.id}?autoplay=${autoplay}&loop=1&muted=1&background=1&autopause=0&transparent=0`;
-    el.innerHTML = `
-      <div class="vimeo-wrap">
-        <iframe src="${src}" allow="autoplay; fullscreen" allowfullscreen></iframe>
-      </div>
-      <div class="project-title">${s.title}</div>`;
-    reel.appendChild(el);
-    iframes.push(el.querySelector('iframe'));
-    return el;
-  });
-
-  // Build dots
-  slides.forEach((_, i) => {
-    const d = document.createElement('div');
-    d.className = 'dot' + (i === 0 ? ' active' : '');
-    dotsEl.appendChild(d);
-  });
-
-  function updateUI() {
-    document.getElementById('counter-current').textContent = String(current+1).padStart(2,'0');
-    document.getElementById('counter-progress').style.width = ((current+1)/slides.length*100)+'%';
-    [...dotsEl.querySelectorAll('.dot')].forEach((d,i) => d.className = 'dot'+(i===current?' active':''));
-  }
-
-  // Send postMessage to a single Vimeo iframe
-  function vimeoMsg(iframe, method, value) {
-    const msg = value !== undefined
-      ? JSON.stringify({ method, value })
-      : JSON.stringify({ method });
-    iframe.contentWindow.postMessage(msg, '*');
-  }
-
-  // Mute all, then unmute only current (if sound is on)
-  function syncSound() {
-    iframes.forEach((iframe, i) => {
-      vimeoMsg(iframe, 'setVolume', i === current && soundOn ? 1 : 0);
-    });
-  }
-
-  // Pause all, play only current
-  function syncPlayback(prevIdx) {
-    if (prevIdx !== undefined) vimeoMsg(iframes[prevIdx], 'pause');
-    vimeoMsg(iframes[current], 'play');
-  }
-
-  const overlay = document.getElementById('overlay');
-  function goTo(idx) {
-    if (transitioning || idx === current) return;
-    transitioning = true;
-    const prevIdx = current;
-    overlay.classList.add('flash');
-    setTimeout(() => {
-      slideEls[prevIdx].classList.remove('active');
-      current = idx;
-      slideEls[current].classList.add('active');
-      updateUI();
-      syncPlayback(prevIdx);
-      syncSound();
-      overlay.classList.remove('flash');
-      setTimeout(() => { transitioning = false; }, 1200);
-    }, 380);
-  }
-
-  function next() { goTo((current+1) % slides.length); }
-  function prev() { goTo((current-1+slides.length) % slides.length); }
-
-  // Scroll
-  let acc = 0;
-  window.addEventListener('wheel', e => {
-    e.preventDefault();
-    acc += e.deltaY;
-    if (Math.abs(acc) > 55) { acc > 0 ? next() : prev(); acc = 0; }
-  }, { passive: false });
-
-  // Touch
-  let ty = 0;
-  window.addEventListener('touchstart', e => ty = e.touches[0].clientY);
-  window.addEventListener('touchend', e => {
-    const dy = ty - e.changedTouches[0].clientY;
-    if (Math.abs(dy) > 40) dy > 0 ? next() : prev();
-  });
-
-  // Keyboard
-  window.addEventListener('keydown', e => {
-    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') next();
-    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') prev();
-  });
-
-  // Identity idle
-  const identity = document.getElementById('identity');
-  function resetIdle() {
-    clearTimeout(idleTimer); clearTimeout(ghostTimer);
-    identity.classList.remove('fade','ghost');
-    idleTimer = setTimeout(() => {
-      identity.classList.add('fade');
-      ghostTimer = setTimeout(() => {
-        identity.classList.remove('fade');
-        identity.classList.add('ghost');
-      }, 1600);
-    }, 3000);
-  }
-  window.addEventListener('mousemove', resetIdle);
-  window.addEventListener('wheel', resetIdle);
-  resetIdle();
-
-  // Sound toggle
-  function toggleSound() {
-    soundOn = !soundOn;
-    document.getElementById('sound').classList.toggle('on', soundOn);
-    document.getElementById('sound-label').textContent = soundOn ? 'sound on' : 'sound off';
-    syncSound();
-  }
-
-  // Cursor
-  const cur = document.getElementById('cursor');
-  document.addEventListener('mousemove', e => {
-    cur.style.left = e.clientX+'px'; cur.style.top = e.clientY+'px';
-    cur.classList.remove('hidden');
-  });
-  document.addEventListener('mouseleave', () => cur.classList.add('hidden'));
-  document.querySelectorAll('.nav-btn, #sound').forEach(el => {
-    el.addEventListener('mouseenter', () => cur.classList.add('hover'));
-    el.addEventListener('mouseleave', () => cur.classList.remove('hover'));
-  });
-
-  updateUI();
-</script>
+<p class="p1">&lt;!DOCTYPE html&gt;</p>
+<p class="p1">&lt;html lang="en"&gt;</p>
+<p class="p1">&lt;head&gt;</p>
+<p class="p1">&lt;meta charset="UTF-8"&gt;</p>
+<p class="p1">&lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;</p>
+<p class="p1">&lt;title&gt;Joaquin Orozco&lt;/title&gt;</p>
+<p class="p1">&lt;style&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>:root { --dim: rgba(255,255,255,0.35); --font: 'Helvetica Neue', Helvetica, Arial, sans-serif; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>html, body { width: 100%; height: 100%; background: #000; color: #fff; font-family: var(--font); overflow: hidden; cursor: none; }</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>#cursor {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>position: fixed; width: 10px; height: 10px; border-radius: 50%; background: #fff;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>pointer-events: none; z-index: 9999; transform: translate(-50%, -50%);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>transition: width .25s ease, height .25s ease, opacity .25s ease;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>mix-blend-mode: difference;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#cursor.hover { width: 48px; height: 48px; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#cursor.hidden { opacity: 0; }</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>#reel { position: fixed; inset: 0; }</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>.slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s cubic-bezier(.4,0,.2,1); pointer-events: none; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.slide.active { opacity: 1; pointer-events: auto; }</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>.vimeo-wrap {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>position: absolute; inset: 0; overflow: hidden;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.vimeo-wrap iframe {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>position: absolute;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>top: 50%; left: 50%;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>width: 177.78vh; /* 16:9 */</p>
+<p class="p1"><span class="Apple-converted-space">    </span>height: 100vh;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>min-width: 100%;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>min-height: 56.25vw;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>transform: translate(-50%, -50%);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>border: none;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>pointer-events: none;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>.slide::after {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>content: ''; position: absolute; inset: 0; pointer-events: none;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>background: linear-gradient(to top, rgba(0,0,0,.6) 0%, transparent 50%, rgba(0,0,0,.25) 100%);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>z-index: 2;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>.project-title {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>position: absolute; bottom: 10vh; left: 6vw;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>font-size: clamp(3rem, 7vw, 8.5rem); font-weight: 100; letter-spacing: -.02em;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>line-height: 1; color: #fff; opacity: 0; transform: translateY(18px);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>transition: opacity 1s ease .3s, transform 1s ease .3s;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>pointer-events: none; z-index: 10;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.slide.active .project-title { opacity: .12; transform: translateY(0); }</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>#identity {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>position: fixed; top: 6vh; left: 6vw; z-index: 100;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>transition: opacity 1.5s ease;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#identity.fade { opacity: 0; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#identity.ghost { opacity: .18; transition: opacity .8s ease; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#name { font-size: clamp(.85rem, 1.3vw, 1.1rem); font-weight: 300; letter-spacing: .22em; text-transform: lowercase; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#bio { margin-top: .4rem; font-size: clamp(.6rem, .85vw, .75rem); font-weight: 300; letter-spacing: .12em; color: var(--dim); line-height: 1.6; text-transform: lowercase; }</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>#counter {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>position: fixed; bottom: 6vh; right: 6vw; z-index: 100;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>display: flex; align-items: center; gap: .8rem;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#counter-current { font-size: .65rem; font-weight: 300; letter-spacing: .18em; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#counter-line { width: 40px; height: 1px; background: rgba(255,255,255,.2); position: relative; overflow: hidden; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#counter-progress { position: absolute; left: 0; top: 0; height: 100%; background: #fff; transition: width .5s ease; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#counter-total { font-size: .65rem; font-weight: 300; letter-spacing: .18em; color: var(--dim); }</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>#sound {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>position: fixed; bottom: 6vh; left: 6vw; z-index: 100;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>cursor: none; display: flex; align-items: center; gap: .7rem;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#sound-bars { display: flex; align-items: flex-end; gap: 2px; height: 14px; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.bar { width: 2px; background: rgba(255,255,255,.35); border-radius: 1px; transition: height .3s ease, background .3s ease; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.bar:nth-child(1) { height: 4px; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.bar:nth-child(2) { height: 10px; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.bar:nth-child(3) { height: 7px; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#sound.on .bar { background: rgba(255,255,255,.85); }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#sound.on .bar:nth-child(1) { animation: p1 .8s ease infinite alternate; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#sound.on .bar:nth-child(2) { animation: p2 .6s ease infinite alternate; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#sound.on .bar:nth-child(3) { animation: p3 .9s ease infinite alternate; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>@keyframes p1 { from { height: 4px; } to { height: 12px; } }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>@keyframes p2 { from { height: 10px; } to { height: 4px; } }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>@keyframes p3 { from { height: 7px; } to { height: 14px; } }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#sound-label { font-size: .58rem; letter-spacing: .18em; color: var(--dim); text-transform: lowercase; font-weight: 300; }</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>#dots {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>position: fixed; right: 6vw; top: 50%; transform: translateY(-50%);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>z-index: 100; display: flex; flex-direction: column; align-items: center;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>gap: 7px; opacity: .4; transition: opacity 1s ease;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#dots.hidden { opacity: 0; pointer-events: none; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.dot { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,.25); transition: background .3s, transform .3s; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.dot.active { transform: scale(1.8); background: #fff; }</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>#overlay { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 200; transition: opacity .4s ease; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>#overlay.flash { opacity: .75; }</p>
+<p class="p1">&lt;/style&gt;</p>
+<p class="p1">&lt;/head&gt;</p>
+<p class="p1">&lt;body&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;div id="cursor"&gt;&lt;/div&gt;</p>
+<p class="p1">&lt;div id="overlay"&gt;&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;div id="identity"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div id="name"&gt;joaquin orozco&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div id="bio"&gt;brand strategies &amp; comms director&lt;/div&gt;</p>
+<p class="p1">&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;div id="sound" onclick="toggleSound()"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div id="sound-bars"&gt;&lt;div class="bar"&gt;&lt;/div&gt;&lt;div class="bar"&gt;&lt;/div&gt;&lt;div class="bar"&gt;&lt;/div&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;span id="sound-label"&gt;sound off&lt;/span&gt;</p>
+<p class="p1">&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;div id="counter"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;span id="counter-current"&gt;01&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div id="counter-line"&gt;&lt;div id="counter-progress"&gt;&lt;/div&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;span id="counter-total"&gt;15&lt;/span&gt;</p>
+<p class="p1">&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;div id="dots"&gt;&lt;/div&gt;</p>
+<p class="p1">&lt;div id="reel"&gt;&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const slides = [</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{ title: "I",<span class="Apple-converted-space">    </span>id: "1172849073" },</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{ title: "II", <span class="Apple-converted-space">  </span>id: "1172849046" },</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{ title: "III",<span class="Apple-converted-space">  </span>id: "1172849012" },</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{ title: "IV", <span class="Apple-converted-space">  </span>id: "1172848986" },</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{ title: "V",<span class="Apple-converted-space">    </span>id: "1172848954" },</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{ title: "VI", <span class="Apple-converted-space">  </span>id: "1172848930" },</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{ title: "VII",<span class="Apple-converted-space">  </span>id: "1172848889" },</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{ title: "VIII", id: "1172848857" },</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{ title: "IX", <span class="Apple-converted-space">  </span>id: "1172848833" },</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{ title: "X",<span class="Apple-converted-space">    </span>id: "1172848807" },</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{ title: "XI", <span class="Apple-converted-space">  </span>id: "1172848786" },</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{ title: "XII",<span class="Apple-converted-space">  </span>id: "1172848769" },</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{ title: "XIII", id: "1172848710" },</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{ title: "XIV",<span class="Apple-converted-space">  </span>id: "1172848667" },</p>
+<p class="p1"><span class="Apple-converted-space">    </span>{ title: "XV", <span class="Apple-converted-space">  </span>id: "1172848640" },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>];</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>let current = 0, transitioning = false, soundOn = false;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>let idleTimer, ghostTimer;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>let players = [];</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>const reel = document.getElementById('reel');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const dotsEl = document.getElementById('dots');</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>// Build slides</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const slideEls = slides.map((s, i) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const el = document.createElement('div');</p>
+<p class="p1"><span class="Apple-converted-space">    </span>el.className = 'slide' + (i === 0 ? ' active' : '');</p>
+<p class="p1"><span class="Apple-converted-space">    </span>// Vimeo embed: autoplay, loop, muted, no controls, no title, no byline</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const src = `https://player.vimeo.com/video/${s.id}?autoplay=1&amp;loop=1&amp;muted=1&amp;background=1&amp;autopause=0&amp;transparent=0`;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>el.innerHTML = `</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="vimeo-wrap"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;iframe src="${src}" allow="autoplay; fullscreen" allowfullscreen&gt;&lt;/iframe&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="project-title"&gt;${s.title}&lt;/div&gt;`;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>reel.appendChild(el);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return el;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>// Build dots</p>
+<p class="p1"><span class="Apple-converted-space">  </span>slides.forEach((_, i) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const d = document.createElement('div');</p>
+<p class="p1"><span class="Apple-converted-space">    </span>d.className = 'dot' + (i === 0 ? ' active' : '');</p>
+<p class="p1"><span class="Apple-converted-space">    </span>dotsEl.appendChild(d);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>function updateUI() {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>document.getElementById('counter-current').textContent = String(current+1).padStart(2,'0');</p>
+<p class="p1"><span class="Apple-converted-space">    </span>document.getElementById('counter-progress').style.width = ((current+1)/slides.length*100)+'%';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>[...dotsEl.querySelectorAll('.dot')].forEach((d,i) =&gt; d.className = 'dot'+(i===current?' active':''));</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>const overlay = document.getElementById('overlay');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>function goTo(idx) {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (transitioning || idx === current) return;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>transitioning = true;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>overlay.classList.add('flash');</p>
+<p class="p1"><span class="Apple-converted-space">    </span>setTimeout(() =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>slideEls[current].classList.remove('active');</p>
+<p class="p1"><span class="Apple-converted-space">      </span>current = idx;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>slideEls[current].classList.add('active');</p>
+<p class="p1"><span class="Apple-converted-space">      </span>updateUI();</p>
+<p class="p1"><span class="Apple-converted-space">      </span>overlay.classList.remove('flash');</p>
+<p class="p1"><span class="Apple-converted-space">      </span>setTimeout(() =&gt; { transitioning = false; }, 1200);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}, 380);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const next = () =&gt; goTo((current+1) % slides.length);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const prev = () =&gt; goTo((current-1+slides.length) % slides.length);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>// Scroll</p>
+<p class="p1"><span class="Apple-converted-space">  </span>let acc = 0;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>window.addEventListener('wheel', e =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>e.preventDefault();</p>
+<p class="p1"><span class="Apple-converted-space">    </span>acc += e.deltaY;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (Math.abs(acc) &gt; 55) { acc &gt; 0 ? next() : prev(); acc = 0; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}, { passive: false });</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>// Touch</p>
+<p class="p1"><span class="Apple-converted-space">  </span>let ty = 0;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>window.addEventListener('touchstart', e =&gt; ty = e.touches[0].clientY);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>window.addEventListener('touchend', e =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const dy = ty - e.changedTouches[0].clientY;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (Math.abs(dy) &gt; 40) dy &gt; 0 ? next() : prev();</p>
+<p class="p1"><span class="Apple-converted-space">  </span>});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>// Keyboard</p>
+<p class="p1"><span class="Apple-converted-space">  </span>window.addEventListener('keydown', e =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (e.key === 'ArrowDown' || e.key === 'ArrowRight') next();</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') prev();</p>
+<p class="p1"><span class="Apple-converted-space">  </span>});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>// Identity idle</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const identity = document.getElementById('identity');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>function resetIdle() {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>clearTimeout(idleTimer); clearTimeout(ghostTimer);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>identity.classList.remove('fade','ghost');</p>
+<p class="p1"><span class="Apple-converted-space">    </span>idleTimer = setTimeout(() =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>identity.classList.add('fade');</p>
+<p class="p1"><span class="Apple-converted-space">      </span>ghostTimer = setTimeout(() =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>identity.classList.remove('fade');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>identity.classList.add('ghost');</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}, 1600);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}, 3000);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>window.addEventListener('mousemove', resetIdle);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>window.addEventListener('wheel', resetIdle);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>resetIdle();</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>// Hide dots on first scroll</p>
+<p class="p1"><span class="Apple-converted-space">  </span>window.addEventListener('wheel', () =&gt; dotsEl.classList.add('hidden'), { once: true });</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>// Sound — uses Vimeo postMessage API</p>
+<p class="p1"><span class="Apple-converted-space">  </span>function toggleSound() {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>soundOn = !soundOn;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>document.getElementById('sound').classList.toggle('on', soundOn);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>document.getElementById('sound-label').textContent = soundOn ? 'sound on' : 'sound off';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>document.querySelectorAll('.vimeo-wrap iframe').forEach(iframe =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const msg = soundOn</p>
+<p class="p1"><span class="Apple-converted-space">        </span>? JSON.stringify({ method: 'setVolume', value: 1 })</p>
+<p class="p1"><span class="Apple-converted-space">        </span>: JSON.stringify({ method: 'setVolume', value: 0 });</p>
+<p class="p1"><span class="Apple-converted-space">      </span>iframe.contentWindow.postMessage(msg, '*');</p>
+<p class="p1"><span class="Apple-converted-space">    </span>});</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>// Cursor</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const cur = document.getElementById('cursor');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.addEventListener('mousemove', e =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>cur.style.left = e.clientX+'px'; cur.style.top = e.clientY+'px';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>cur.classList.remove('hidden');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>});</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.addEventListener('mouseleave', () =&gt; cur.classList.add('hidden'));</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('sound').addEventListener('mouseenter', () =&gt; cur.classList.add('hover'));</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('sound').addEventListener('mouseleave', () =&gt; cur.classList.remove('hover'));</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>updateUI();</p>
+<p class="p1">&lt;/script&gt;</p>
+<p class="p1">&lt;/body&gt;</p>
+<p class="p1">&lt;/html&gt;</p>
 </body>
 </html>
