@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Joaquin Orozco</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --dim: rgba(255,255,255,0.35); --font: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+  html, body { width: 100%; height: 100%; background: #000; color: #fff; font-family: var(--font); overflow: hidden; cursor: none; }
+
+  #cursor {
+    position: fixed; width: 10px; height: 10px; border-radius: 50%; background: #fff;
+    pointer-events: none; z-index: 9999; transform: translate(-50%, -50%);
+    transition: width .25s ease, height .25s ease, opacity .25s ease;
+    mix-blend-mode: difference;
+  }
+  #cursor.hover { width: 48px; height: 48px; }
+  #cursor.hidden { opacity: 0; }
+
+  #reel { position: fixed; inset: 0; }
+
+  .slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s cubic-bezier(.4,0,.2,1); pointer-events: none; }
+  .slide.active { opacity: 1; pointer-events: auto; }
+
+  .vimeo-wrap { position: absolute; inset: 0; overflow: hidden; }
+  .vimeo-wrap iframe {
+    position: absolute; top: 50%; left: 50%;
+    width: 177.78vh; height: 100vh;
+    min-width: 100%; min-height: 56.25vw;
+    transform: translate(-50%, -50%);
+    border: none; pointer-events: none;
+  }
+
+  .slide::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(to top, rgba(0,0,0,.6) 0%, transparent 50%, rgba(0,0,0,.25) 100%);
+    z-index: 2;
+  }
+
+  .project-title {
+    position: absolute; bottom: 10vh; left: 6vw;
+    font-size: clamp(3rem, 7vw, 8.5rem); font-weight: 100; letter-spacing: -.02em;
+    line-height: 1; color: #fff; opacity: 0; transform: translateY(18px);
+    transition: opacity 1s ease .3s, transform 1s ease .3s;
+    pointer-events: none; z-index: 10;
+  }
+  .slide.active .project-title { opacity: .12; transform: translateY(0); }
+
+  #identity {
+    position: fixed; top: 6vh; left: 6vw; z-index: 100;
+    transition: opacity 1.5s ease;
+  }
+  #identity.fade { opacity: 0; }
+  #identity.ghost { opacity: .18; transition: opacity .8s ease; }
+  #name { font-size: clamp(.85rem, 1.3vw, 1.1rem); font-weight: 300; letter-spacing: .22em; text-transform: lowercase; }
+  #bio { margin-top: .4rem; font-size: clamp(.6rem, .85vw, .75rem); font-weight: 300; letter-spacing: .12em; color: var(--dim); line-height: 1.6; text-transform: lowercase; }
+
+  #counter {
+    position: fixed; bottom: 6vh; right: 6vw; z-index: 100;
+    display: flex; align-items: center; gap: .8rem;
+  }
+  #counter-current { font-size: .65rem; font-weight: 300; letter-spacing: .18em; }
+  #counter-line { width: 40px; height: 1px; background: rgba(255,255,255,.2); position: relative; overflow: hidden; }
+  #counter-progress { position: absolute; left: 0; top: 0; height: 100%; background: #fff; transition: width .5s ease; }
+  #counter-total { font-size: .65rem; font-weight: 300; letter-spacing: .18em; color: var(--dim); }
+
+  #sound {
+    position: fixed; bottom: 6vh; left: 6vw; z-index: 100;
+    cursor: none; display: flex; align-items: center; gap: .7rem;
+  }
+  #sound-bars { display: flex; align-items: flex-end; gap: 2px; height: 14px; }
+  .bar { width: 2px; background: rgba(255,255,255,.35); border-radius: 1px; transition: height .3s ease, background .3s ease; }
+  .bar:nth-child(1) { height: 4px; }
+  .bar:nth-child(2) { height: 10px; }
+  .bar:nth-child(3) { height: 7px; }
+  #sound.on .bar { background: rgba(255,255,255,.85); }
+  #sound.on .bar:nth-child(1) { animation: p1 .8s ease infinite alternate; }
+  #sound.on .bar:nth-child(2) { animation: p2 .6s ease infinite alternate; }
+  #sound.on .bar:nth-child(3) { animation: p3 .9s ease infinite alternate; }
+  @keyframes p1 { from { height: 4px; } to { height: 12px; } }
+  @keyframes p2 { from { height: 10px; } to { height: 4px; } }
+  @keyframes p3 { from { height: 7px; } to { height: 14px; } }
+  #sound-label { font-size: .58rem; letter-spacing: .18em; color: var(--dim); text-transform: lowercase; font-weight: 300; }
+
+  /* Nav arrows */
+  #nav {
+    position: fixed; top: 50%; right: 6vw;
+    transform: translateY(-50%);
+    z-index: 100;
+    display: flex; flex-direction: column; align-items: center; gap: 1.2rem;
+  }
+  .nav-btn {
+    cursor: none;
+    width: 36px; height: 36px;
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color .3s, background .3s, transform .2s;
+    background: transparent;
+  }
+  .nav-btn:hover { border-color: rgba(255,255,255,.8); background: rgba(255,255,255,.08); transform: scale(1.12); }
+  .nav-btn svg { width: 12px; height: 12px; fill: none; stroke: #fff; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: .7; }
+  .nav-btn:hover svg { opacity: 1; }
+
+  /* Dots between arrows */
+  #dots {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .dot { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,.22); transition: background .3s, transform .3s; }
+  .dot.active { transform: scale(1.9); background: #fff; }
+
+  #overlay { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 200; transition: opacity .4s ease; }
+  #overlay.flash { opacity: .75; }
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="overlay"></div>
+
+<div id="identity">
+  <div id="name">joaquin orozco</div>
+  <div id="bio">brand strategies & comms director</div>
+</div>
+
+<div id="sound" onclick="toggleSound()">
+  <div id="sound-bars"><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>
+  <span id="sound-label">sound off</span>
+</div>
+
+<div id="counter">
+  <span id="counter-current">01</span>
+  <div id="counter-line"><div id="counter-progress"></div></div>
+  <span id="counter-total">15</span>
+</div>
+
+<div id="nav">
+  <button class="nav-btn" id="btn-prev" onclick="prev()" title="Previous">
+    <svg viewBox="0 0 12 12"><polyline points="10,9 6,4 2,9"/></svg>
+  </button>
+  <div id="dots"></div>
+  <button class="nav-btn" id="btn-next" onclick="next()" title="Next">
+    <svg viewBox="0 0 12 12"><polyline points="2,3 6,8 10,3"/></svg>
+  </button>
+</div>
+
+<div id="reel"></div>
+
+<script>
+  const slides = [
+    { title: "I",    id: "1172849073" },
+    { title: "II",   id: "1172849046" },
+    { title: "III",  id: "1172849012" },
+    { title: "IV",   id: "1172848986" },
+    { title: "V",    id: "1172848954" },
+    { title: "VI",   id: "1172848930" },
+    { title: "VII",  id: "1172848889" },
+    { title: "VIII", id: "1172848857" },
+    { title: "IX",   id: "1172848833" },
+    { title: "X",    id: "1172848807" },
+    { title: "XI",   id: "1172848786" },
+    { title: "XII",  id: "1172848769" },
+    { title: "XIII", id: "1172848710" },
+    { title: "XIV",  id: "1172848667" },
+    { title: "XV",   id: "1172848640" },
+  ];
+
+  let current = 0, transitioning = false, soundOn = false;
+  let idleTimer, ghostTimer;
+
+  const reel = document.getElementById('reel');
+  const dotsEl = document.getElementById('dots');
+  const iframes = [];
+
+  // Build slides
+  const slideEls = slides.map((s, i) => {
+    const el = document.createElement('div');
+    el.className = 'slide' + (i === 0 ? ' active' : '');
+    // Only first slide autoplays; others load paused via autopause
+    const autoplay = i === 0 ? 1 : 0;
+    const src = `https://player.vimeo.com/video/${s.id}?autoplay=${autoplay}&loop=1&muted=1&background=1&autopause=0&transparent=0`;
+    el.innerHTML = `
+      <div class="vimeo-wrap">
+        <iframe src="${src}" allow="autoplay; fullscreen" allowfullscreen></iframe>
+      </div>
+      <div class="project-title">${s.title}</div>`;
+    reel.appendChild(el);
+    iframes.push(el.querySelector('iframe'));
+    return el;
+  });
+
+  // Build dots
+  slides.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    dotsEl.appendChild(d);
+  });
+
+  function updateUI() {
+    document.getElementById('counter-current').textContent = String(current+1).padStart(2,'0');
+    document.getElementById('counter-progress').style.width = ((current+1)/slides.length*100)+'%';
+    [...dotsEl.querySelectorAll('.dot')].forEach((d,i) => d.className = 'dot'+(i===current?' active':''));
+  }
+
+  // Send postMessage to a single Vimeo iframe
+  function vimeoMsg(iframe, method, value) {
+    const msg = value !== undefined
+      ? JSON.stringify({ method, value })
+      : JSON.stringify({ method });
+    iframe.contentWindow.postMessage(msg, '*');
+  }
+
+  // Mute all, then unmute only current (if sound is on)
+  function syncSound() {
+    iframes.forEach((iframe, i) => {
+      vimeoMsg(iframe, 'setVolume', i === current && soundOn ? 1 : 0);
+    });
+  }
+
+  // Pause all, play only current
+  function syncPlayback(prevIdx) {
+    if (prevIdx !== undefined) vimeoMsg(iframes[prevIdx], 'pause');
+    vimeoMsg(iframes[current], 'play');
+  }
+
+  const overlay = document.getElementById('overlay');
+  function goTo(idx) {
+    if (transitioning || idx === current) return;
+    transitioning = true;
+    const prevIdx = current;
+    overlay.classList.add('flash');
+    setTimeout(() => {
+      slideEls[prevIdx].classList.remove('active');
+      current = idx;
+      slideEls[current].classList.add('active');
+      updateUI();
+      syncPlayback(prevIdx);
+      syncSound();
+      overlay.classList.remove('flash');
+      setTimeout(() => { transitioning = false; }, 1200);
+    }, 380);
+  }
+
+  function next() { goTo((current+1) % slides.length); }
+  function prev() { goTo((current-1+slides.length) % slides.length); }
+
+  // Scroll
+  let acc = 0;
+  window.addEventListener('wheel', e => {
+    e.preventDefault();
+    acc += e.deltaY;
+    if (Math.abs(acc) > 55) { acc > 0 ? next() : prev(); acc = 0; }
+  }, { passive: false });
+
+  // Touch
+  let ty = 0;
+  window.addEventListener('touchstart', e => ty = e.touches[0].clientY);
+  window.addEventListener('touchend', e => {
+    const dy = ty - e.changedTouches[0].clientY;
+    if (Math.abs(dy) > 40) dy > 0 ? next() : prev();
+  });
+
+  // Keyboard
+  window.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') next();
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') prev();
+  });
+
+  // Identity idle
+  const identity = document.getElementById('identity');
+  function resetIdle() {
+    clearTimeout(idleTimer); clearTimeout(ghostTimer);
+    identity.classList.remove('fade','ghost');
+    idleTimer = setTimeout(() => {
+      identity.classList.add('fade');
+      ghostTimer = setTimeout(() => {
+        identity.classList.remove('fade');
+        identity.classList.add('ghost');
+      }, 1600);
+    }, 3000);
+  }
+  window.addEventListener('mousemove', resetIdle);
+  window.addEventListener('wheel', resetIdle);
+  resetIdle();
+
+  // Sound toggle
+  function toggleSound() {
+    soundOn = !soundOn;
+    document.getElementById('sound').classList.toggle('on', soundOn);
+    document.getElementById('sound-label').textContent = soundOn ? 'sound on' : 'sound off';
+    syncSound();
+  }
+
+  // Cursor
+  const cur = document.getElementById('cursor');
+  document.addEventListener('mousemove', e => {
+    cur.style.left = e.clientX+'px'; cur.style.top = e.clientY+'px';
+    cur.classList.remove('hidden');
+  });
+  document.addEventListener('mouseleave', () => cur.classList.add('hidden'));
+  document.querySelectorAll('.nav-btn, #sound').forEach(el => {
+    el.addEventListener('mouseenter', () => cur.classList.add('hover'));
+    el.addEventListener('mouseleave', () => cur.classList.remove('hover'));
+  });
+
+  updateUI();
+</script>
+</body>
+</html>
